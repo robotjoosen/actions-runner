@@ -1,6 +1,7 @@
 name: build
 
-# Builds the runner image and pushes it to GHCR, tagged with the runner version from the Dockerfile and `latest`.
+# Builds the runner image and pushes it to GHCR, tagged `<runner version>-<commit>`, `<runner version>` and `latest`.
+# Pin the commit tag in a cluster: nodes cache images by tag, so a rebuilt `<runner version>` is not pulled again.
 # The repository is public, so this runs on GitHub-hosted runners at no cost and the package can be public.
 
 on:
@@ -33,6 +34,7 @@ jobs:
           version=$(sed -nE 's|^FROM ghcr.io/actions/actions-runner:([0-9.]+)$|\1|p' Dockerfile)
           [ -n "$version" ] || { echo "::error::No runner version in the Dockerfile FROM line"; exit 1; }
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "commit=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -44,6 +46,7 @@ jobs:
           platforms: linux/amd64
           load: true
           tags: |
+            ${{ env.IMAGE }}:${{ steps.version.outputs.version }}-${{ steps.version.outputs.commit }}
             ${{ env.IMAGE }}:${{ steps.version.outputs.version }}
             ${{ env.IMAGE }}:latest
           cache-from: type=gha
@@ -52,7 +55,7 @@ jobs:
       - name: Check the tools
         run: |
           docker run --rm --entrypoint bash "$IMAGE:latest" -c \
-            'set -e; gh --version; jq --version; python3 -m venv /tmp/v && /tmp/v/bin/pip --version; test -x /home/runner/run.sh'
+            'set -e; gh --version; jq --version; envsubst --version | head -1; zip -v | head -1; make --version | head -1; python3 -m venv /tmp/v && /tmp/v/bin/pip --version; test -x /home/runner/run.sh'
 
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
