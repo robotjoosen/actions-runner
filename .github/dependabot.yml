@@ -1,0 +1,11 @@
+version: 2
+updates:
+  # A new runner release bumps the FROM tag; merging the PR builds the new image.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
